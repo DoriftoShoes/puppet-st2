@@ -100,4 +100,40 @@ class st2::params(
     'python-prettytable',
   ]
   ### END RedHat Specific Information ###
+
+  # Detect init type
+  case $::osfamily {
+    'Debian': {
+      case $::operatingsystem {
+        'Debian': {
+          if versioncmp($::operatingsystemrelease, '8.0') >= 0 {
+            $provider = 'systemd'
+          } else {
+            $provider = 'init'
+          }
+        }
+        'Ubuntu': {
+          if versioncmp($::operatingsystemrelease, '15.04') >= 0 {
+            $provider = 'systemd'
+          } else {
+            $provider = 'upstart'
+          }
+        }
+        default: {
+          fail('StackStorm does not know what Debian based OS this is.')
+        }
+      }
+    }
+    'RedHat': {
+      if ($::operatingsystem == 'Fedora') or
+         (versioncmp($::operatingsystemrelease, '7.0') >= 0) {
+        $provider = 'systemd'
+      } else {
+        $template = 'init'
+      }
+    }
+    default: {
+      fail('StackStorm needs a Debian or RedHat based system.')
+    }
+  }
 }

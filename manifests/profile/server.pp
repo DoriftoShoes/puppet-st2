@@ -151,8 +151,8 @@ class st2::profile::server (
 
   ## ActionRunner settings
   ini_setting { 'actionrunner_logging':
-    ensure => present,
-    path   => '/etc/st2/st2.conf',
+    ensure  => present,
+    path    => '/etc/st2/st2.conf',
     section => 'actionrunner',
     setting => 'logging',
     value   => "/etc/st2actions/${_logger_config}.conf",
@@ -285,142 +285,29 @@ class st2::profile::server (
   }
 
   if $_ng_init {
-    file { '/etc/init/st2actionrunner.conf':
-      ensure => present,
-      owner  => 'root',
-      group  => 'root',
-      mode   => '0444',
-      source => 'puppet:///modules/st2/etc/init/st2actionrunner.conf',
-    }
-
     # Spin up any number of workers as needed
-    $_workers = prefix(range("0", "${workers}"), "worker")
-    ::st2::helper::actionrunner_upstart { $_workers: }
+    $_workers = prefix(range('0', "${workers}"), "worker")
 
-    service { 'st2actionrunner':
-      ensure     => running,
-      enable     => true,
-      hasstatus  => true,
-      hasrestart => true,
-      provider   => 'upstart',
-    }
+    # Services safe to start always
+    $_services = [
+      'st2actionrunner',
+      'st2resultstracker',
+      'st2sensorcontainer',
+      'st2notifier',
+      'st2rulesengine',
+    ]
+
+    ::st2::service { $_services: }
+    ::st2::service::actionrunner { $_workers: }
 
     if $auth and $manage_st2auth_service {
-      file { '/etc/init/st2auth.conf':
-        ensure => present,
-        owner  => 'root',
-        group  => 'root',
-        mode   => '0444',
-        source => 'puppet:///modules/st2/etc/init/st2auth.conf',
-      }
-
-      service { 'st2auth':
-        ensure     => running,
-        enable     => true,
-        hasstatus  => true,
-        hasrestart => true,
-        provider   => 'upstart',
-      }
+      ::st2::service { 'st2auth': }
     }
-
     if $manage_st2api_service {
-      file { '/etc/init/st2api.conf':
-        ensure => present,
-        owner  => 'root',
-        group  => 'root',
-        mode   => '0444',
-        source => 'puppet:///modules/st2/etc/init/st2api.conf',
-      }
-
-      service { 'st2api':
-        ensure     => running,
-        enable     => true,
-        hasstatus  => true,
-        hasrestart => true,
-        provider   => 'upstart',
-      }
+      ::st2::service { 'st2api': }
     }
-
-    file { '/etc/init/st2resultstracker.conf':
-      ensure => present,
-      owner  => 'root',
-      group  => 'root',
-      mode   => '0444',
-      source => 'puppet:///modules/st2/etc/init/st2resultstracker.conf',
-    }
-
-    service { 'st2resultstracker':
-      ensure     => running,
-      enable     => true,
-      hasstatus  => true,
-      hasrestart => true,
-      provider   => 'upstart',
-    }
-
-    file { '/etc/init/st2sensorcontainer.conf':
-      ensure => present,
-      owner  => 'root',
-      group  => 'root',
-      mode   => '0444',
-      source => 'puppet:///modules/st2/etc/init/st2sensorcontainer.conf',
-    }
-
-    service { 'st2sensorcontainer':
-      ensure     => running,
-      enable     => true,
-      hasstatus  => true,
-      hasrestart => true,
-      provider   => 'upstart',
-    }
-
-    file { '/etc/init/st2notifier.conf':
-      ensure => present,
-      owner  => 'root',
-      group  => 'root',
-      mode   => '0444',
-      source => 'puppet:///modules/st2/etc/init/st2notifier.conf',
-    }
-
-    service { 'st2notifier':
-      ensure     => running,
-      enable     => true,
-      hasstatus  => true,
-      hasrestart => true,
-      provider   => 'upstart',
-    }
-
-    file { '/etc/init/st2rulesengine.conf':
-      ensure => present,
-      owner  => 'root',
-      group  => 'root',
-      mode   => '0444',
-      source => 'puppet:///modules/st2/etc/init/st2rulesengine.conf',
-    }
-
-    service { 'st2rulesengine':
-      ensure     => running,
-      enable     => true,
-      hasstatus  => true,
-      hasrestart => true,
-      provider   => 'upstart',
-    }
-
     if $manage_st2web_service {
-      file { '/etc/init/st2web.conf':
-        ensure => present,
-        owner  => 'root',
-        group  => 'root',
-        mode   => '0444',
-        source => 'puppet:///modules/st2/etc/init/st2web.conf',
-      }
-
-      service { 'st2web':
-        ensure     => running,
-        enable     => true,
-        hasstatus  => true,
-        hasrestart => true,
-        provider   => 'upstart',
-      }
+      ::st2::service { 'st2web': }
     }
 
     file_line { 'st2 ng_init enable':
@@ -430,9 +317,9 @@ class st2::profile::server (
 
     St2::Package::Install<| tag == 'st2::profile::server' |>
     -> Ini_setting<| tag == 'st2::profile::server' |>
-    -> Service<| tag == 'st2::profile::server' |>
+    ~> Service<| tag == 'st2::service' |>
 
-    Service<| tag == 'st2::profile::server' |> -> St2::Pack<||>
+    Service<| tag == 'st2::service' |> -> St2::Pack<||>
   } else {
     ## Needs to have real init scripts
     exec { 'start st2':
